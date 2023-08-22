@@ -44,3 +44,9 @@ func (ud *UserDAO) Insert(ctx context.Context, u User) error {
 
 	return err
 }
+
+func (ud *UserDAO) FindById(ctx context.Context, id int64) (User, error) {
+	var u User
+	err := ud.db.First(&u, "id = ?", id).Error
+	return u, err
+}

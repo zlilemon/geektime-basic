@@ -1,7 +1,9 @@
 package main
 
 import (
+	"geektime-basic/webook/internal/repository"
 	"geektime-basic/webook/internal/repository/dao"
+	"geektime-basic/webook/internal/service"
 	"geektime-basic/webook/internal/web"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
@@ -16,8 +18,8 @@ func main() {
 
 	initUser(server, db)
 
-	u := &web.UserHandler{}
-	u.RegisterRoutes(server)
+	//u := &web.UserHandler{}
+	//u.RegisterRoutes(server)
 
 	server.Run(":8080")
 
@@ -43,4 +45,8 @@ func initWebServer() *gin.Engine {
 
 func initUser(server *gin.Engine, db *gorm.DB) {
 	ud := dao.NewUserDAO(db)
+	ur := repository.NewUserRepostiry(ud)
+	us := service.NewUserService(ur)
+	c := web.NewUserHandler(us)
+	c.RegisterRoutes(server)
 }
