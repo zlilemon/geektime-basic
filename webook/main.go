@@ -5,22 +5,33 @@ import (
 	"geektime-basic/webook/internal/repository/dao"
 	"geektime-basic/webook/internal/service"
 	"geektime-basic/webook/internal/web"
+	"geektime-basic/webook/internal/web/middleware"
+	"geektime-basic/webook/pkg/ginx/middleware/ratelimit"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"net/http"
+	"strings"
+	"time"
 )
 
 func main() {
 
-	db := initDB()
+	//db := initDB()
 
-	server := initWebServer()
+	//server := initWebServer()
 
-	initUser(server, db)
+	//initUser(server, db)
 
 	//u := &web.UserHandler{}
 	//u.RegisterRoutes(server)
 
+	server := gin.Default()
+	server.GET("/hello", func(ctx *gin.Context) {
+		ctx.String(http.StatusOK, "你来了")
+	})
 	server.Run(":8080")
 
 }
@@ -40,7 +51,35 @@ func initDB() *gorm.DB {
 
 func initWebServer() *gin.Engine {
 	server := gin.Default()
+
+	cmd := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       1,
+	})
+
+	server.Use(ratelimit.NewBuilder(cmd, time.Minute, 100).Build())
+
+	server.Use(cors.New(cors.Config{
+		AllowCredentials: true,
+		AllowHeaders:     []string{"Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"X-Jwt-Token"},
+		AllowOriginFunc: func(origin string) bool {
+			if strings.HasPrefix(origin, "http://localhost") {
+				return true
+			}
+			return strings.Contains(origin, "your_company.com")
+		},
+		MaxAge: 12 * time.Hour,
+	}))
+
+	usingJWT(server)
 	return server
+}
+
+func usingJWT(server *gin.Engine) {
+	mldBd := &middleware.JWTLoginMiddlewareBuilder{}
+	server.Use(mldBd.Build())
 }
 
 func initUser(server *gin.Engine, db *gorm.DB) {
