@@ -89,3 +89,7 @@ func initUser(server *gin.Engine, db *gorm.DB) {
 	c := web.NewUserHandler(us)
 	c.RegisterRoutes(server)
 }
+
+func hello() {
+
+}
