@@ -6,33 +6,30 @@ import (
 	"geektime-basic/webook/internal/service"
 	"geektime-basic/webook/internal/web"
 	"geektime-basic/webook/internal/web/middleware"
-	"geektime-basic/webook/pkg/ginx/middleware/ratelimit"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"net/http"
 	"strings"
 	"time"
 )
 
 func main() {
 
-	//db := initDB()
+	db := initDB()
 
-	//server := initWebServer()
+	server := initWebServer()
 
-	//initUser(server, db)
+	initUser(server, db)
 
 	//u := &web.UserHandler{}
 	//u.RegisterRoutes(server)
 
-	server := gin.Default()
-	server.GET("/hello", func(ctx *gin.Context) {
-		ctx.String(http.StatusOK, "你来了")
-	})
-	server.Run(":8080")
+	//server := gin.Default()
+	//server.GET("/hello", func(ctx *gin.Context) {
+	//	ctx.String(http.StatusOK, "你来了")
+	//})
+	//server.Run(":8080")
 
 }
 
@@ -52,13 +49,23 @@ func initDB() *gorm.DB {
 func initWebServer() *gin.Engine {
 	server := gin.Default()
 
-	cmd := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       1,
+	server.Use(func(ctx *gin.Context) {
+		println("这是第一个 middleware for test")
 	})
 
-	server.Use(ratelimit.NewBuilder(cmd, time.Minute, 100).Build())
+	server.Use(func(ctx *gin.Context) {
+		println("这是第二个 middleware for test")
+	})
+
+	/*
+		cmd := redis.NewClient(&redis.Options{
+			Addr:     "localhost:6379",
+			Password: "",
+			DB:       1,
+		})
+
+		server.Use(ratelimit.NewBuilder(cmd, time.Minute, 100).Build())
+	*/
 
 	server.Use(cors.New(cors.Config{
 		AllowCredentials: true,
@@ -73,7 +80,7 @@ func initWebServer() *gin.Engine {
 		MaxAge: 12 * time.Hour,
 	}))
 
-	usingJWT(server)
+	// usingJWT(server)
 	return server
 }
 
