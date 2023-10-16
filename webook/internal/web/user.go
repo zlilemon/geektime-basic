@@ -95,7 +95,34 @@ func (c *UserHandler) SignUp(ctx *gin.Context) {
 }
 
 func (c *UserHandler) Login(ctx *gin.Context) {
+	type LoginReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
 
+	var req LoginReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	user, err := c.svc.Login(ctx, req.Email, req.Password)
+	if err == service.ErrInvalidUserOrPassword {
+		ctx.String(http.StatusOK, "用户名或密码不对")
+		return
+	}
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+	}
+
+	// 步骤2
+	// 这里登录成功了，设置 session
+	sess := sessions.Default(ctx)
+
+	// 可以随便设置值，要放在session里面的值
+	sess.Set("userId", user.Id)
+	sess.Save()
+	ctx.String(http.StatusOK, "登录成功")
+
+	return
 }
 
 func (c *UserHandler) Edit(ctx *gin.Context) {

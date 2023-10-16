@@ -7,6 +7,7 @@ import (
 )
 
 var ErrUserDuplicateEmail = dao.ErrUserDuplicateEmail
+var ErrUserNotFound = dao.ErrUserNotFound
 
 type UserRepository struct {
 	dao *dao.UserDAO
@@ -33,4 +34,17 @@ func (ur *UserRepository) FindById(ctx context.Context, id int64) (domain.User, 
 		Email:    u.Email,
 		Password: u.Password,
 	}, err
+}
+
+func (ur *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
+	u, err := ur.dao.FindByEmail(ctx, email)
+	if err != nil {
+		return domain.User{}, err
+	}
+
+	return domain.User{
+		Id:       u.Id,
+		Email:    u.Email,
+		Password: u.Password,
+	}, nil
 }

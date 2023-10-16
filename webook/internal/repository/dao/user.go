@@ -9,6 +9,7 @@ import (
 )
 
 var ErrUserDuplicateEmail = errors.New("邮件冲突")
+var ErrUserNotFound = gorm.ErrRecordNotFound
 
 type User struct {
 	Id       int64  `gorm:"primaryKey,autoIncrement"`
@@ -48,5 +49,11 @@ func (ud *UserDAO) Insert(ctx context.Context, u User) error {
 func (ud *UserDAO) FindById(ctx context.Context, id int64) (User, error) {
 	var u User
 	err := ud.db.First(&u, "id = ?", id).Error
+	return u, err
+}
+
+func (ud *UserDAO) FindByEmail(ctx context.Context, email string) (User, error) {
+	var u User
+	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
 	return u, err
 }

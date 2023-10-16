@@ -29,7 +29,7 @@ func main() {
 	//server.GET("/hello", func(ctx *gin.Context) {
 	//	ctx.String(http.StatusOK, "你来了")
 	//})
-	//server.Run(":8080")
+	server.Run(":8080")
 
 }
 
