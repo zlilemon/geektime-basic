@@ -1,11 +1,13 @@
 package web
 
 import (
+	"fmt"
 	"geektime-basic/webook/internal/domain"
 	"geektime-basic/webook/internal/service"
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 )
 
@@ -33,7 +35,8 @@ func (c *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug := server.Group("/users")
 
 	ug.POST("/signup", c.SignUp)
-	ug.POST("/login", c.Login)
+	// ug.POST("/login", c.Login)
+	ug.POST("/login", c.LoginJWT)
 	ug.POST("/edit", c.Edit)
 	ug.POST("/profile", c.Profile)
 
@@ -122,6 +125,38 @@ func (c *UserHandler) Login(ctx *gin.Context) {
 	sess.Save()
 	ctx.String(http.StatusOK, "登录成功")
 
+	return
+}
+
+func (c *UserHandler) LoginJWT(ctx *gin.Context) {
+	type LoginReq struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	var req LoginReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+
+	user, err := c.svc.Login(ctx, req.Email, req.Password)
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	// 在这里设置 JWT token
+	token := jwt.New(jwt.SigningMethodHS512)
+	tokenStr, err := token.SignedString([]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"))
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "系统错误")
+		return
+	}
+
+	ctx.Header("x-jwt-token", tokenStr)
+	fmt.Println(user)
+
+	ctx.String(http.StatusOK, "登陆成功")
 	return
 }
 

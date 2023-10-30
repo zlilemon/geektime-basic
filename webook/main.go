@@ -7,6 +7,8 @@ import (
 	"geektime-basic/webook/internal/web"
 	"geektime-basic/webook/internal/web/middleware"
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -57,6 +59,9 @@ func initWebServer() *gin.Engine {
 		println("这是第二个 middleware for test")
 	})
 
+	server.Use(func(ctx *gin.Context) {
+		println("这是第三个 middleware for test")
+	})
 	/*
 		cmd := redis.NewClient(&redis.Options{
 			Addr:     "localhost:6379",
@@ -68,11 +73,13 @@ func initWebServer() *gin.Engine {
 	*/
 
 	server.Use(cors.New(cors.Config{
+		// 是否允许带cookie 之类的东西
 		AllowCredentials: true,
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"X-Jwt-Token"},
+		// 不加这个 ExposeHeaders，前端是那不到 x-jwt-token的
+		ExposeHeaders: []string{"x-jwt-token"},
 		AllowOriginFunc: func(origin string) bool {
-			if strings.HasPrefix(origin, "http://localhost") {
+			if strings.HasPrefix(origin, "http://localhosts") {
 				return true
 			}
 			return strings.Contains(origin, "your_company.com")
@@ -80,8 +87,16 @@ func initWebServer() *gin.Engine {
 		MaxAge: 12 * time.Hour,
 	}))
 
+	store, err := redis.NewStore(16, "tcp", "localhost:6379", "",
+		[]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"), []byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"))
 	// usingJWT(server)
 	return server
+	if err != nil {
+		panic(err)
+	}
+
+	server.Use(sessions.Sessions("mysession", store))
+
 }
 
 func usingJWT(server *gin.Engine) {
