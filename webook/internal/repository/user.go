@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"geektime-basic/webook/internal/domain"
+	"geektime-basic/webook/internal/repository/cache"
 	"geektime-basic/webook/internal/repository/dao"
 )
 
@@ -10,12 +11,14 @@ var ErrUserDuplicateEmail = dao.ErrUserDuplicateEmail
 var ErrUserNotFound = dao.ErrUserNotFound
 
 type UserRepository struct {
-	dao *dao.UserDAO
+	dao   *dao.UserDAO
+	cache *cache.UserCache
 }
 
-func NewUserRepostiry(d *dao.UserDAO) *UserRepository {
+func NewUserRepostiry(d *dao.UserDAO, c *cache.UserCache) *UserRepository {
 	return &UserRepository{
-		dao: d,
+		dao:   d,
+		cache: c,
 	}
 }
 
@@ -29,11 +32,29 @@ func (ur *UserRepository) Create(ctx context.Context, u domain.User) error {
 }
 
 func (ur *UserRepository) FindById(ctx context.Context, id int64) (domain.User, error) {
-	u, err := ur.dao.FindById(ctx, id)
-	return domain.User{
+
+	// 从cache中查询
+	u, err := ur.cache.Get(ctx, id)
+	if err == nil {
+		return u, nil
+	}
+
+	// 没这个数据
+	// 从db中查询
+	// u, err := ur.dao.FindById(ctx, id)
+	u = domain.User{
 		Email:    u.Email,
 		Password: u.Password,
-	}, err
+	}
+
+	go func() {
+		err = ur.cache.Set(ctx, u)
+		if err != nil {
+			// 打日志监控
+		}
+	}()
+
+	return u, err
 }
 
 func (ur *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {

@@ -35,10 +35,11 @@ func (c *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug := server.Group("/users")
 
 	ug.POST("/signup", c.SignUp)
-	// ug.POST("/login", c.Login)
-	ug.POST("/login", c.LoginJWT)
+	ug.POST("/login", c.Login)
+	ug.POST("/loginJwt", c.LoginJWT)
 	ug.POST("/edit", c.Edit)
 	ug.POST("/profile", c.Profile)
+	ug.POST("/profileJwt", c.ProfileJWT)
 
 }
 
@@ -154,9 +155,11 @@ func (c *UserHandler) LoginJWT(ctx *gin.Context) {
 	}
 
 	ctx.Header("x-jwt-token", tokenStr)
+	fmt.Println(token)
+	fmt.Println(tokenStr)
 	fmt.Println(user)
 
-	ctx.String(http.StatusOK, "登陆成功")
+	ctx.String(http.StatusOK, "登录成功")
 	return
 }
 
@@ -179,4 +182,21 @@ func (c *UserHandler) Profile(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, Profile{
 		Email: u.Email,
 	})
+}
+
+func (c *UserHandler) ProfileJWT(ctx *gin.Context) {
+	claimTmp, _ := ctx.Get("claims")
+
+	claims, ok := claimTmp.(*UserClaims)
+	if !ok {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	println(claims.Uid)
+}
+
+type UserClaims struct {
+	jwt.RegisteredClaims
+	Uid       int64
+	UserAgent string
 }

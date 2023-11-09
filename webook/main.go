@@ -1,15 +1,17 @@
 package main
 
 import (
+	"geektime-basic/webook/config"
 	"geektime-basic/webook/internal/repository"
+	"geektime-basic/webook/internal/repository/cache"
 	"geektime-basic/webook/internal/repository/dao"
 	"geektime-basic/webook/internal/service"
 	"geektime-basic/webook/internal/web"
 	"geektime-basic/webook/internal/web/middleware"
 	"github.com/gin-contrib/cors"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/redis"
+	//"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"strings"
@@ -22,7 +24,9 @@ func main() {
 
 	server := initWebServer()
 
-	initUser(server, db)
+	rdb := initRedis()
+
+	initUser(server, db, rdb)
 
 	//u := &web.UserHandler{}
 	//u.RegisterRoutes(server)
@@ -77,7 +81,7 @@ func initWebServer() *gin.Engine {
 		AllowCredentials: true,
 		AllowHeaders:     []string{"Content-Type", "Authorization"},
 		// 不加这个 ExposeHeaders，前端是那不到 x-jwt-token的
-		ExposeHeaders: []string{"x-jwt-token"},
+		// ExposeHeaders: []string{"x-jwt-token"},
 		AllowOriginFunc: func(origin string) bool {
 			if strings.HasPrefix(origin, "http://localhosts") {
 				return true
@@ -87,16 +91,29 @@ func initWebServer() *gin.Engine {
 		MaxAge: 12 * time.Hour,
 	}))
 
-	store, err := redis.NewStore(16, "tcp", "localhost:6379", "",
-		[]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"), []byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"))
-	// usingJWT(server)
+	/*
+
+		store, err := redis.NewStore(16,
+			"tcp", "localhost:6379", "",
+			[]byte("95osj3fUD7fo0mlYdDbncXz4VD2igvf0"), []byte("0Pf2r0wZBpXVXlQNdpwCXN4ncnlnZSc3"))
+		// usingJWT(server)
+
+		if err != nil {
+			panic(err)
+		}
+	*/
+
+	// server.Use(sessions.Sessions("mysession", store))
+
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
+		IgnorePaths("/users/signup").
+		IgnorePaths("/users/login").
+		IgnorePaths("/users/loginJwt").
+		IgnorePaths("/users/profile").
+		Build())
+	//server.Use(middleware.)
+
 	return server
-	if err != nil {
-		panic(err)
-	}
-
-	server.Use(sessions.Sessions("mysession", store))
-
 }
 
 func usingJWT(server *gin.Engine) {
@@ -104,11 +121,22 @@ func usingJWT(server *gin.Engine) {
 	server.Use(mldBd.Build())
 }
 
-func initUser(server *gin.Engine, db *gorm.DB) {
+func initRedis() redis.Cmdable {
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: config.Config.Redis.Addr,
+	})
+
+	return redisClient
+}
+
+func initUser(server *gin.Engine, db *gorm.DB, rdb redis.Cmdable) {
 	ud := dao.NewUserDAO(db)
-	ur := repository.NewUserRepostiry(ud)
+	uc := cache.NewUserCache(rdb)
+
+	ur := repository.NewUserRepostiry(ud, uc)
 	us := service.NewUserService(ur)
 	c := web.NewUserHandler(us)
+
 	c.RegisterRoutes(server)
 }
 

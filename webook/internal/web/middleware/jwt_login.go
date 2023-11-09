@@ -11,23 +11,43 @@ import (
 )
 
 type JWTLoginMiddlewareBuilder struct {
+	paths []string
+}
+
+func NewLoginJWTMiddlewareBuilder() *JWTLoginMiddlewareBuilder {
+	return &JWTLoginMiddlewareBuilder{}
+}
+
+func (j *JWTLoginMiddlewareBuilder) IgnorePaths(path string) *JWTLoginMiddlewareBuilder {
+	j.paths = append(j.paths, path)
+
+	return j
 }
 
 func (j *JWTLoginMiddlewareBuilder) Build() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		if ctx.Request.URL.Path == "/users/signup" ||
-			ctx.Request.URL.Path == "/users/login" {
-			return
+		//if ctx.Request.URL.Path == "/users/signup" ||
+		//	ctx.Request.URL.Path == "/users/login" {
+		//	return
+		//}
+
+		for _, path := range j.paths {
+			if ctx.Request.URL.Path == path {
+				return
+			}
 		}
 
-		authCode := ctx.GetHeader("Authorization")
-		if authCode == "" {
+		// 用JWT来校验
+		tokenHeader := ctx.GetHeader("Authorization")
+		if tokenHeader == "" {
+			// 没登录
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
-		authSegments := strings.SplitN(authCode, " ", 2)
+		authSegments := strings.SplitN(tokenHeader, " ", 2)
 		if len(authSegments) != 2 {
+			// 没登录，有人瞎搞
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
@@ -38,6 +58,7 @@ func (j *JWTLoginMiddlewareBuilder) Build() gin.HandlerFunc {
 			return web.JWTKey, nil
 		})
 		if err != nil || !token.Valid {
+			// 没登录
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
