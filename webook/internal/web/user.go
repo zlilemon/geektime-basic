@@ -11,6 +11,8 @@ import (
 	"net/http"
 )
 
+const biz = "login"
+
 const (
 	userIdKey            = "userId"
 	emailRegexPattern    = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
@@ -19,6 +21,7 @@ const (
 
 type UserHandler struct {
 	svc              *service.UserService
+	codeSvc          *service.CodeService
 	emailRegexExp    *regexp.Regexp
 	passwordRegexExp *regexp.Regexp
 }
@@ -41,6 +44,44 @@ func (c *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug.POST("/profile", c.Profile)
 	ug.POST("/profileJwt", c.ProfileJWT)
 
+	ug.POST("/login_sms/code/send", c.SendLoginSMSCode)
+
+}
+
+func (c *UserHandler) SendLoginSMSCode(ctx *gin.Context) {
+	type Req struct {
+		Phone string `json:"phone"`
+	}
+
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+
+	if req.Phone == "" {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 4,
+			Msg:  "输入有误",
+		})
+		return
+	}
+
+	err := c.codeSvc.Send(ctx, biz, req.Phone)
+	switch err {
+	case nil:
+		ctx.JSON(http.StatusOK, Result{
+			Msg: "发送成功",
+		})
+	case service.ErrCodeSendTooMany:
+		ctx.JSON(http.StatusOK, Result{
+			Msg: "发送太频繁，请稍后再试",
+		})
+	default:
+		ctx.JSON(http.StatusOK, Result{
+			Code: 5,
+			Msg:  "系统错误",
+		})
+	}
 }
 
 func (c *UserHandler) SignUp(ctx *gin.Context) {
@@ -173,7 +214,13 @@ func (c *UserHandler) Profile(ctx *gin.Context) {
 	}
 
 	sess := sessions.Default(ctx)
-	id := sess.Get(userIdKey).(int64)
+	fmt.Printf("sess %+v", sess)
+
+	id, ok := sess.Get(userIdKey).(int64)
+	if !ok {
+		fmt.Println("can not get userId")
+	}
+
 	u, err := c.svc.Profile(ctx, id)
 	if err != nil {
 		ctx.String(http.StatusOK, "系统错误")
