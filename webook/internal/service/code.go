@@ -15,12 +15,26 @@ var (
 	ErrCodeSendTooMany        = repository.ErrCodeSendTooMany
 )
 
-type CodeService struct {
-	repo   *repository.CodeRepository
+type CodeService interface {
+	Send(ctx context.Context,
+		biz string,
+		phone string) error
+	//generateCode() string
+}
+
+type codeService struct {
+	repo   repository.CodeRepository
 	smsSvc sms.Service
 }
 
-func (svc *CodeService) Send(ctx context.Context,
+func NewCodeService(repo repository.CodeRepository, smsSvc sms.Service) CodeService {
+	return &codeService{
+		repo:   repo,
+		smsSvc: smsSvc,
+	}
+}
+
+func (svc *codeService) Send(ctx context.Context,
 	biz string,
 	phone string) error {
 	// 生成验证码
@@ -47,7 +61,7 @@ func (svc *CodeService) Send(ctx context.Context,
 	return err
 }
 
-func (svc *CodeService) generateCode() string {
+func (svc *codeService) generateCode() string {
 	// 六位数， num 在 0， 999999 之间，包含 0 和 999999
 	num := rand.Intn(100000)
 	return fmt.Sprintf("%6d", num)

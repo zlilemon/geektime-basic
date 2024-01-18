@@ -10,19 +10,25 @@ import (
 var ErrUserDuplicateEmail = dao.ErrUserDuplicateEmail
 var ErrUserNotFound = dao.ErrUserNotFound
 
-type UserRepository struct {
-	dao   *dao.UserDAO
-	cache *cache.UserCache
+type UserRepository interface {
+	Create(ctx context.Context, u domain.User) error
+	FindById(ctx context.Context, id int64) (domain.User, error)
+	FindByEmail(ctx context.Context, email string) (domain.User, error)
 }
 
-func NewUserRepostiry(d *dao.UserDAO, c *cache.UserCache) *UserRepository {
-	return &UserRepository{
+type CacheUserRepository struct {
+	dao   dao.UserDAO
+	cache cache.UserCache
+}
+
+func NewUserRepostiry(d dao.UserDAO, c cache.UserCache) UserRepository {
+	return &CacheUserRepository{
 		dao:   d,
 		cache: c,
 	}
 }
 
-func (ur *UserRepository) Create(ctx context.Context, u domain.User) error {
+func (ur *CacheUserRepository) Create(ctx context.Context, u domain.User) error {
 	err := ur.dao.Insert(ctx, dao.User{
 		Email:    u.Email,
 		Password: u.Password,
@@ -31,7 +37,7 @@ func (ur *UserRepository) Create(ctx context.Context, u domain.User) error {
 	return err
 }
 
-func (ur *UserRepository) FindById(ctx context.Context, id int64) (domain.User, error) {
+func (ur *CacheUserRepository) FindById(ctx context.Context, id int64) (domain.User, error) {
 
 	// 从cache中查询
 	u, err := ur.cache.Get(ctx, id)
@@ -57,7 +63,7 @@ func (ur *UserRepository) FindById(ctx context.Context, id int64) (domain.User, 
 	return u, err
 }
 
-func (ur *UserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
+func (ur *CacheUserRepository) FindByEmail(ctx context.Context, email string) (domain.User, error) {
 	u, err := ur.dao.FindByEmail(ctx, email)
 	if err != nil {
 		return domain.User{}, err

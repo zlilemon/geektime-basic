@@ -1,18 +1,17 @@
 package main
 
 import (
-	"geektime-basic/webook/config"
 	"geektime-basic/webook/internal/repository"
 	"geektime-basic/webook/internal/repository/cache"
 	"geektime-basic/webook/internal/repository/dao"
 	"geektime-basic/webook/internal/service"
+	"geektime-basic/webook/internal/service/sms/memory"
 	"geektime-basic/webook/internal/web"
 	"geektime-basic/webook/internal/web/middleware"
 	"github.com/gin-contrib/cors"
 	//"github.com/gin-contrib/sessions/redis"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"strings"
 	"time"
@@ -20,17 +19,15 @@ import (
 
 func main() {
 
-	db := initDB()
-
-	server := initWebServer()
-
-	rdb := initRedis()
-
-	initUser(server, db, rdb)
+	//db := initDB()
+	//server := initWebServer()
+	//rdb := initRedis()
+	//initUser(server, db, rdb)
 
 	//u := &web.UserHandler{}
 	//u.RegisterRoutes(server)
 
+	server := InitWebServer()
 	//server := gin.Default()
 	//server.GET("/hello", func(ctx *gin.Context) {
 	//	ctx.String(http.StatusOK, "你来了")
@@ -39,6 +36,7 @@ func main() {
 
 }
 
+/*
 func initDB() *gorm.DB {
 	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13316)/webook"))
 	if err != nil {
@@ -51,6 +49,7 @@ func initDB() *gorm.DB {
 	}
 	return db
 }
+*/
 
 func initWebServer() *gin.Engine {
 	server := gin.Default()
@@ -110,6 +109,7 @@ func initWebServer() *gin.Engine {
 		IgnorePaths("/users/login").
 		IgnorePaths("/users/loginJwt").
 		IgnorePaths("/users/profile").
+		IgnorePaths("/users/login_sms/code/send").
 		Build())
 	//server.Use(middleware.)
 
@@ -121,6 +121,7 @@ func usingJWT(server *gin.Engine) {
 	server.Use(mldBd.Build())
 }
 
+/*
 func initRedis() redis.Cmdable {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: config.Config.Redis.Addr,
@@ -128,6 +129,7 @@ func initRedis() redis.Cmdable {
 
 	return redisClient
 }
+*/
 
 func initUser(server *gin.Engine, db *gorm.DB, rdb redis.Cmdable) {
 	ud := dao.NewUserDAO(db)
@@ -135,7 +137,14 @@ func initUser(server *gin.Engine, db *gorm.DB, rdb redis.Cmdable) {
 
 	ur := repository.NewUserRepostiry(ud, uc)
 	us := service.NewUserService(ur)
-	c := web.NewUserHandler(us)
+
+	codeCache := cache.NewCodeCache(rdb)
+	codeRepo := repository.NewCodeRepository(codeCache)
+
+	smsSvc := memory.NewService()
+	codeSvc := service.NewCodeService(codeRepo, smsSvc)
+
+	c := web.NewUserHandler(us, codeSvc)
 
 	c.RegisterRoutes(server)
 }

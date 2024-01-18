@@ -20,17 +20,23 @@ type User struct {
 	Utime int64
 }
 
-type UserDAO struct {
+type UserDAO interface {
+	Insert(ctx context.Context, u User) error
+	FindById(ctx context.Context, id int64) (User, error)
+	FindByEmail(ctx context.Context, email string) (User, error)
+}
+
+type GORMUserDAO struct {
 	db *gorm.DB
 }
 
-func NewUserDAO(db *gorm.DB) *UserDAO {
-	return &UserDAO{
+func NewUserDAO(db *gorm.DB) UserDAO {
+	return &GORMUserDAO{
 		db: db,
 	}
 }
 
-func (ud *UserDAO) Insert(ctx context.Context, u User) error {
+func (ud *GORMUserDAO) Insert(ctx context.Context, u User) error {
 	now := time.Now().UnixMilli()
 	u.Ctime = now
 	u.Utime = now
@@ -46,13 +52,13 @@ func (ud *UserDAO) Insert(ctx context.Context, u User) error {
 	return err
 }
 
-func (ud *UserDAO) FindById(ctx context.Context, id int64) (User, error) {
+func (ud *GORMUserDAO) FindById(ctx context.Context, id int64) (User, error) {
 	var u User
 	err := ud.db.First(&u, "id = ?", id).Error
 	return u, err
 }
 
-func (ud *UserDAO) FindByEmail(ctx context.Context, email string) (User, error) {
+func (ud *GORMUserDAO) FindByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err := ud.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
 	return u, err
